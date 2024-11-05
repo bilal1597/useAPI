@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\Post;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class PostController extends Controller
 {
@@ -12,7 +14,12 @@ class PostController extends Controller
      */
     public function index()
     {
-        //
+        $data['post'] = Post::all();
+        return response()->json([
+            'status' => true,
+            'message' => 'All Posts',
+            'data' => $data
+        ], 200);
     }
 
     /**
@@ -20,7 +27,36 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $userValidate = Validator::make(
+            $request->all(),
+            [
+                'title' => 'required',
+                'description' => 'required',
+                'image' => 'required|mimes:png,jpg,jpeg,webp,gif'
+            ]
+
+        );
+
+        if ($userValidate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation Error',
+                'errors' => $userValidate->errors()->all()
+            ], 401);
+        }
+
+
+        $post = Post::create([
+            'title' => $request->title,
+            'description' => $request->description,
+            'image' => $request->image
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Post Created Successfully',
+            'post' => $post,
+        ], 200);
     }
 
     /**
