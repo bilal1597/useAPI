@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 use function Laravel\Prompts\password;
@@ -15,7 +14,8 @@ class AuthController extends Controller
 {
     public function signup(Request $request)
     {
-        // Log::info($request->all());
+        ///validator for different methods with validation
+
         $userValidate = Validator::make(
             $request->all(),
             [
@@ -25,35 +25,36 @@ class AuthController extends Controller
             ]
 
         );
-        // Log::info($userValidate);
+
+        ///Signup error response
+
         if ($userValidate->fails()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Validation Error',
                 'errors' => $userValidate->errors()->all()
             ], 401);
-            // Log::info(response()->json());
         }
 
-
+        ////////////// user create
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => $request->password
         ]);
-        // Log::info($user);
+        ///// user created response
         return response()->json([
             'status' => true,
             'message' => 'User Created Successfully',
             'user' => $user,
         ], 200);
-        // Log::info(response()->json());
     }
 
 
 
     public function login(Request $request)
     {
+
         $userValidate = Validator::make(
             $request->all(),
             [
@@ -61,6 +62,7 @@ class AuthController extends Controller
                 'password' => 'required'
             ]
         );
+        //////////// login fail response
         if ($userValidate->fails()) {
             return response()->json([
                 'status' => false,
@@ -69,15 +71,17 @@ class AuthController extends Controller
             ], 404);
         }
 
+        //////////// auth check for user in login with token creation
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $authUser = Auth::user();
             return response()->json([
                 'status' => true,
                 'message' => 'Logged In Successfully',
-                'token' => $authUser->createToken("API Token")->plainTextToken,
+                'token' => $authUser->createToken("API_Token")->plainTextToken,
                 'token_type' => 'bearer'
             ], 200);
-        } else {
+        } //////////// login error response
+        else {
             return response()->json([
                 'status' => false,
                 'message' => 'Email or Password does not Match',
