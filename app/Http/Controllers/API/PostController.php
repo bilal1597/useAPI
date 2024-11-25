@@ -24,19 +24,54 @@ class PostController extends Controller
         ], 200);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    // public function store(Request $request)
+    // {
+    //     $userValidate = Validator::make(
+    //         $request->all(),
+    //         [
+    //             'title' => 'required',
+    //             'description' => 'required',
+    //             'image' => 'nullable|mimes:png,jpg,jpeg,webp,gif'
+    //         ]
+
+    //     );
+
+    //     if ($userValidate->fails()) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Validation Error',
+    //             'errors' => $userValidate->errors()->all()
+    //         ], 401);
+    //     }
+
+    //     $img = $request->image;
+    //     $ext = $img->getClientOriginalExtension();
+    //     $imageName = time() . '.' . $ext;
+    //     $img->move(public_path() . '/uploads/posts/', $imageName);
+
+    //     $post = Post::create([
+    //         'title' => $request->title,
+    //         'description' => $request->description,
+    //         'image' => $request->$imageName
+    //     ]);
+
+    //     return response()->json([
+    //         'status' => true,
+    //         'message' => 'Post Created Successfully',
+    //         'post' => $post,
+    //     ], 200);
+    // }
+
     public function store(Request $request)
     {
+        // request ki validation k lye
         $userValidate = Validator::make(
             $request->all(),
             [
                 'title' => 'required',
                 'description' => 'required',
-                'image' => 'required|mimes:png,jpg,jpeg,webp,gif'
+                'image' => 'nullable|mimes:png,jpg,jpeg,webp,gif'
             ]
-
         );
 
         if ($userValidate->fails()) {
@@ -47,16 +82,26 @@ class PostController extends Controller
             ], 401);
         }
 
-        $img = $request->image;
-        // $ext = $img->getClientOriginalExtension();
-        $ext = $img->extension();
-        $imageName = time() . '.' . $ext;
-        $img->move(public_path() . '/uploads/posts', $imageName);
+        // Handle image upload if  provided
+        if ($request->hasFile('image')) {
+            $img = $request->file('image');
+            $ext = $img->getClientOriginalExtension();
+            $imageName = time() . '.' . $ext;
 
+            // Move the image to the 'uploads/posts' folder
+            $img->move(public_path('uploads/posts'), $imageName);
+
+            // Save image path to Db
+            $imagePath = 'uploads/posts/' . $imageName;
+        } else {
+            $imagePath = null; // Agr image image upload na ho
+        }
+
+        // Create the post record
         $post = Post::create([
             'title' => $request->title,
             'description' => $request->description,
-            'image' => $request->$imageName
+            'image' => $imagePath // Save image path to database
         ]);
 
         return response()->json([
@@ -65,6 +110,7 @@ class PostController extends Controller
             'post' => $post,
         ], 200);
     }
+
 
     /**
      * Display the specified resource.
@@ -89,14 +135,14 @@ class PostController extends Controller
      */
     public function update(Request $request, string $id)
     {
+        // Validate the request
         $userValidate = Validator::make(
             $request->all(),
             [
                 'title' => 'required',
                 'description' => 'required',
-                'image' => 'required|mimes:png,jpg,jpeg,webp,gif'
+                'image' => 'nullable|mimes:png,jpg,jpeg,webp,gif'
             ]
-
         );
 
         if ($userValidate->fails()) {
@@ -107,30 +153,41 @@ class PostController extends Controller
             ], 401);
         }
 
-        $post = Post::select('id', 'image')->get();
-        if ($request->image != '') {
-            $path = public_path() . '/uploads/posts';
-            if ($post->image != '' && $post->image != null) {
-                $oldFile = $path . $post->image;
-                if (fileExists($oldFile)) {
+        // Retrieve the existing post image
+        $postImage = Post::select('id', 'image')
+            ->where('id', $id)
+            ->first(); // Using first() instead of get()
+
+        // If a new image is uploaded
+        if ($request->hasFile('image')) {
+            $path = public_path() . '/uploads/posts/';
+
+            // If there is an old image, delete it
+            if ($postImage && $postImage->image) {
+                $oldFile = $path . $postImage->image;
+                if (file_exists($oldFile)) { // Fix the file_exists function
                     unlink($oldFile);
                 }
             }
 
-            $img = $request->image;
-            // $ext = $img->getClientOriginalExtension();
-            $ext = $img->extension();
+            // Get the new image's extension and save it
+            $img = $request->file('image');
+            $ext = $img->extension(); // Can also use getClientOriginalExtension()
             $imageName = time() . '.' . $ext;
-            $img->move(public_path() . '/uploads/posts', $imageName);
+            $img->move($path, $imageName);
+
+            // Store the relative image path
+            $imagePath = 'uploads/posts/' . $imageName;
         } else {
-            $imageName = $post->image;
+            // If no new image is uploaded, keep the old one
+            $imagePath = $postImage->image;
         }
 
-
-        $post = Post::where(['id' => $id])->update([
+        // Update the post with new data
+        $post = Post::where('id', $id)->update([
             'title' => $request->title,
             'description' => $request->description,
-            'image' => $request->$imageName
+            'image' => $imagePath // Store the image path
         ]);
 
         return response()->json([
@@ -140,21 +197,64 @@ class PostController extends Controller
         ], 200);
     }
 
+
     /**
      * Remove the specified resource from storage.
      */
+    // public function destroy(string $id)
+    // {
+    //     $imagePath = Post::select('image')->where('id', $id)->get();
+    //     $filePath = public_path() . '/uploads/posts/' . $imagePath[0]['image'];
+    //     unlink($filePath);
+
+    //     $post = Post::where('id', $id)->delete();
+
+
+
+    //     return response()->json([
+    //         'status' => true,
+    //         'message' => 'Post Deleted Successfully',
+    //         'post' => $post,
+    //     ], 200);
+    // }
+
     public function destroy(string $id)
     {
-        $imagePath = Post::select('image')->where('id', $id)->get();
-        $filePath = public_path() . '/uploads/posts' . $imagePath[0]['image'];
-        $post = Post::where('id', $id)->delete();
+        // Retrieve the post by id
+        $post = Post::select('image')
+            ->where('id', $id)->first(); // Use first() instead of get()
 
-        unlink($filePath);
+        // Check if the post exists
+        if (!$post) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Post not found',
+            ], 404);
+        }
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Post Deleted Successfully',
-            'post' => $post,
-        ], 200);
+        // If the post has an image, delete the image file
+        if ($post->image) {
+            $filePath = public_path('uploads/posts/' . $post->image);
+
+            // Check if the file exists before trying to delete it
+            if (file_exists($filePath)) {
+                unlink($filePath);
+            }
+        }
+
+        // Delete the post record from the database
+        $postDeleted = Post::where('id', $id)->delete();
+
+        if ($postDeleted) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Post Deleted Successfully',
+            ], 200);
+        } else {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to delete post',
+            ], 500);
+        }
     }
 }
